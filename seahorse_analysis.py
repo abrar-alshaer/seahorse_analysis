@@ -24,16 +24,17 @@ import os, sys
 ##Transpose the file and save it as a comma delimmited file (CSV)
 
 #FILE INPUTS
-#OCR & ECAR files MUST have identically ordered row and column identifiers (rows are samples, columns are timepoints) - or else program will output incorrect results
-seaFileOCR = 'seahorseOCR_Day21_COMBO_Data_RMoutliers.csv' #make sure your file is transposed so that the timepoints are the column headers and groups are the rows
-seaFileECAR = 'SeahorseECAR_Data_COMBO_DAY21.csv'
+#OCR & ECAR files MUST have identical row and column names (rows are samples, columns are timepoints) - or else program will output incorrect results
+#columns must be in identical order between OCR & ECAR files, row names don't have to be ordered the same way but both files must share the same row sample IDs
+seaFileOCR = 'SeahorseOCR_Data_COMBO_DAY24_lean_HF_only_RMoutliers_7.10.19.csv' #make sure your file is transposed so that the timepoints are the column headers and groups are the rows
+seaFileECAR = 'SeahorseECAR_Data_COMBO_DAY24_lean_HF_only_RMoutliers_7.10.19.csv'
 
 #specify biological REPLICATES (overall groups)
 #The group names must be unique from each other, from example, you cannot have B cell HF and B cell HF_SPM because both contain the same prefix 'B cell HF'
 #That is why you should change it to B cell HF and B cell SPM_HF to make sure all prefixes are unique. Or else the program will assign that sample to the wrong group.
 #Day0 & Day21 bioRep
 #'B cell Lean', 'B cell HF', 'B cell SPM_HF', 'CD4 Lean', 'CD4 HF', 'CD4 SPM_HF', 'CD8 Lean', 'CD8 HF', 'CD8 SPM_HF'
-bioReps = ['B cell Lean', 'B cell HF', 'B cell SPM_HF', 'CD4 Lean', 'CD4 HF', 'CD4 SPM_HF', 'CD8 Lean', 'CD8 HF', 'CD8 SPM_HF']
+bioReps = ['B cell Lean', 'B cell HF', 'CD4 Lean', 'CD4 HF', 'CD8 Lean', 'CD8 HF']
 #Day10 11/17/18 bioRep
 #'B cell Lean', 'B cell HF', 'B cell SPM_HF', 'CD4 Lean', 'CD4 HF', 'CD4 SPM_HF', 'CD8 Lean', 'CD8 HF', 'CD8 SPM_HF', 'Lean Lung', 'HF Lung', 'HF_SPM Lung'
 #bioReps = ['B cell Lean', 'B cell HF', 'B cell SPM_HF', 'CD4 Lean', 'CD4 HF', 'CD4 SPM_HF', 'CD8 Lean', 'CD8 HF', 'CD8 SPM_HF', 'Lean Lung', 'HF_SPM Lung'] #make sure the spelling matches your input data group names (from your CSV files)
@@ -45,10 +46,15 @@ if (from_csv < 0).any().sum() > 0:
     sys.exit(0)
 
 print "\n-------------AVERAGED OCR TECHNICAL REPLICATES-------------\n"
-avg_tech_reps_OCR = from_csv.groupby('Time (minutes)').mean().reset_index()
+avg_tech_reps_OCR = from_csv.groupby('Time..minutes.').mean().reset_index()
 print avg_tech_reps_OCR #we now have biological replicates
 
+#Subsetting the sample IDs column (Sample No.) for later annotation of the pandas dataframe output
+from_csv_sub = from_csv[["Time..minutes."]]
+df_drop_ocr = from_csv_sub.drop_duplicates('Time..minutes.', keep='first') #removing duplicate rows based on the Time..minutes. column
+
 sample = []
+#sample_id = []
 group = []
 nonMitoResp = []
 basalOCR = []
@@ -62,6 +68,9 @@ spareRespCapPercent = []
 couplingEff = []
 for index, row in avg_tech_reps_OCR.iterrows():
     sample.append(row[0])
+    #for index_sub, row_sub in df_drop_ocr.iterrows():
+        #if row_sub[1] == row[0]:
+            #sample_id.append(row_sub[0])
     for i in bioReps:
         if i in row[0]:
             group.append(i) #assign the sample to a group (helpful for later calculating mean/standard dev for biological replicates)
@@ -89,7 +98,7 @@ if (from_csv < 0).any().sum() > 0:
     sys.exit(0)
 
 print "\n-------------AVERAGED ECAR TECHNICAL REPLICATES-------------\n"
-avg_tech_reps_ECAR = from_csv2.groupby('Time (minutes)').mean().reset_index()
+avg_tech_reps_ECAR = from_csv2.groupby('Time..minutes.').mean().reset_index()
 print avg_tech_reps_ECAR #we now have biological replicates
 
 basalECAR = []
@@ -102,23 +111,25 @@ for i in range(0, len(basalOCR)):
 
 print "\n---------Seahorse Calculations Output File---------\n"
 #creating calculations dataframe
-print "Sample:", len(sample), "Group:", len(group), "Non mito", len(nonMitoResp), "ocr", len(basalOCR), "ecar", len(basalECAR), "ocr-nonMitoResp", len(basalOCR_nonMitoResp), "max resp", len(maxResp), "proton", len(protonLeak), "ATP", len(ATP), "spare resp", len(spareRespCap), "Spare %", len(spareRespCapPercent), "coupling", len(couplingEff), "ocr/ecar", len(OCR_ECAR_ratio)
+print "Sample:", len(sample), "Groups:", len(group), "Non mito", len(nonMitoResp), "ocr", len(basalOCR), "ecar", len(basalECAR), "ocr-nonMitoResp", len(basalOCR_nonMitoResp), "max resp", len(maxResp), "proton", len(protonLeak), "ATP", len(ATP), "spare resp", len(spareRespCap), "Spare %", len(spareRespCapPercent), "coupling", len(couplingEff), "ocr/ecar", len(OCR_ECAR_ratio)
 print "SAMPLE\n", sample
+#print "SAMPLE ID\n", sample_id
 print "GROUPS\n", group
-df = pd.DataFrame({'1) Samples': sample, '2) Group': group, 'Non-Mitochondrial Respiraion': nonMitoResp, 'Basal OCR': basalOCR, 'Basal OCR - Non-mito respiration': basalOCR_nonMitoResp, 'Maximum Respiration': maxResp, 'Proton Leak': protonLeak, 'ATP Production': ATP, 'Spare Respiratory Capacity': spareRespCap, 'Spare Respiratory Capacity %': spareRespCapPercent, 'Coupling Efficiency': couplingEff, 'Basal ECAR': basalECAR, 'OCR/ECAR Ratio': OCR_ECAR_ratio})
+#making dataframe
+df = pd.DataFrame({'1) Samples': sample, '2) Groups': group, 'Non-Mitochondrial Respiraion': nonMitoResp, 'Basal OCR': basalOCR, 'Basal OCR - Non-mito respiration': basalOCR_nonMitoResp, 'Maximum Respiration': maxResp, 'Proton Leak': protonLeak, 'ATP Production': ATP, 'Spare Respiratory Capacity': spareRespCap, 'Spare Respiratory Capacity %': spareRespCapPercent, 'Coupling Efficiency': couplingEff, 'Basal ECAR': basalECAR, 'OCR/ECAR Ratio': OCR_ECAR_ratio})
 print df
-df.to_csv('seahorse_analysisResults_Day21_COMBO_Data_12.11.18.csv') #send dataframe to a file
+df.to_csv('Final_results_COMBO_DAY24_lean_HF_only_7.10.19.csv') #send dataframe to a file
 
 print "\n\n---------Seahorse Calculations Merged Biological Replicates---------\n"
 
-avg_bio_reps = df.groupby('2) Group').mean().reset_index() #averaging biological replicates
-std_bio_reps = df.groupby('2) Group').std().reset_index() #standard deviation of biological replicates
-sem_bio_reps = (df.drop(columns=['1) Samples'])).groupby('2) Group').sem().reset_index() #standard error of biological replicates
+avg_bio_reps = df.groupby('2) Groups').mean().reset_index() #averaging biological replicates
+std_bio_reps = df.groupby('2) Groups').std().reset_index() #standard deviation of biological replicates
+sem_bio_reps = (df.drop(columns=['1) Samples'])).groupby('2) Groups').sem().reset_index() #standard error of biological replicates
 
 print "\n Mean of Biological Replicates\n",avg_bio_reps
 print "\n Standard Deviation of Biological Replicates\n", std_bio_reps
 print "\n SEMs of Biological Replicates\n", sem_bio_reps
 
-avg_bio_reps.to_csv('seahorse_analysisResults_Means_Day21_COMBO_Data_12.11.18.csv') #send means dataframe to a file
-std_bio_reps.to_csv('seahorse_analysisResults_StdDev_Day21_COMBO_Data_12.11.18.csv') #send standard deviations ataframe to a file
-sem_bio_reps.to_csv('seahorse_analysisResults_SEMs_Day21_COMBO_Data_12.11.18.csv') #send SEMs dataframe to a file
+avg_bio_reps.to_csv('Final_results_COMBO_DAY24_lean_HF_only_7.10.19_Means.csv') #send means dataframe to a file
+std_bio_reps.to_csv('Final_results_COMBO_DAY24_lean_HF_only_7.10.19_StdDev.csv') #send standard deviations ataframe to a file
+sem_bio_reps.to_csv('Final_results_COMBO_DAY24_lean_HF_only_7.10.19_SEMs.csv') #send SEMs dataframe to a file
